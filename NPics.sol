@@ -18,17 +18,18 @@ contract Constants {
     address internal constant _WETH_            = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address internal constant _bendWETHGateway_ = 0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88;
     address internal constant _bendDebtWETH_    = 0x87ddE3A3f4b629E389ce5894c9A1F34A7eeC5648;
-    //address internal constant _BendDAO_LendPool_    = 0x70b97A0da65C15dfb0FFA02aEE6FA36e507C2762;
+    //address internal constant _LendPoolAddressesProvider_ = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
+    //address internal constant _LendPool_      = 0x70b97A0da65C15dfb0FFA02aEE6FA36e507C2762;
+    address internal constant _LendPoolLoan_    = 0x5f6ac80CdB9E87f3Cfa6a90E5140B9a16A361d5C;
     address internal constant _NPics_           = 0xA2f78200746F73662ea8b5b721fDA86CB0880F15;
-    address internal constant _BeaconProxyCDP_  = 0x70643f0DFbA856071D335678dF7ED332FFd6e3be;
-    bytes32 internal constant _CBC_SHARD_       = 0;
-    bytes32 internal constant _CDP_SHARD_       = bytes32(uint(1));
+    address internal constant _BeaconProxyNBP_  = 0x70643f0DFbA856071D335678dF7ED332FFd6e3be;
+    bytes32 internal constant _SHARD_NEO_       = 0;
+    bytes32 internal constant _SHARD_NBP_       = bytes32(uint(1));
 
-    
     bytes4 internal constant _INTERFACE_ID_ERC721 = 0x80ac58cd;
 }
 
-contract CBC is ERC721UpgradeSafe, Constants {      // Callable Bull Contract
+contract NEO is ERC721UpgradeSafe, Constants {      // NFT Everlasting Options
     //using SafeERC20 for IERC20;
     //using SafeMath for uint;
     //using Strings for uint;
@@ -36,22 +37,22 @@ contract CBC is ERC721UpgradeSafe, Constants {      // Callable Bull Contract
     address payable public beacon;
     address public nft;
 
-    function __CBC_init(address nft_) external initializer {
+    function __NEO_init(address nft_) external initializer {
         __Context_init_unchained();
         __ERC165_init_unchained();
         (string memory name, string memory symbol) = spellNameAndSymbol(nft_);
         __ERC721_init_unchained(name, symbol);
-        __CBC_init_unchained(nft_);
+        __NEO_init_unchained(nft_);
     }
 
-    function __CBC_init_unchained(address nft_) internal initializer {
+    function __NEO_init_unchained(address nft_) internal initializer {
         beacon = _msgSender();
         nft = nft_;
     }
 
     function spellNameAndSymbol(address nft_) public view returns (string memory name, string memory symbol) {
-        name = string(abi.encodePacked("NPics.xyz Callable Bull Contract ", IERC721Metadata(nft_).symbol()));
-        symbol = string(abi.encodePacked("cbc", IERC721Metadata(nft_).symbol()));
+        name = string(abi.encodePacked("NPics.xyz NFT Everlasting Options ", IERC721Metadata(nft_).symbol()));
+        symbol = string(abi.encodePacked("neo", IERC721Metadata(nft_).symbol()));
     }
 
     function setNameAndSymbol(string memory name, string memory symbol) external {
@@ -82,7 +83,7 @@ contract CBC is ERC721UpgradeSafe, Constants {      // Callable Bull Contract
     uint256[48] private ______gap;
 }
 
-contract CDP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, Constants {      // Collateralized Debt Position
+contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, Constants {      // NFT Backed Position
     //using SafeERC20 for IERC20;
     using SafeMath for uint;
     //using Strings for uint;
@@ -91,13 +92,13 @@ contract CDP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
     address public nft;
     uint public tokenId;
 
-    function __CDP_init(address nft_, uint tokenId_) external initializer {
+    function __NBP_init(address nft_, uint tokenId_) external initializer {
         __ReentrancyGuard_init_unchained();
         __Context_init_unchained();
-        __CDP_init_unchained(nft_, tokenId_);
+        __NBP_init_unchained(nft_, tokenId_);
     }
 
-    function __CDP_init_unchained(address nft_, uint tokenId_) internal initializer {
+    function __NBP_init_unchained(address nft_, uint tokenId_) internal initializer {
         beacon = _msgSender();
         nft = nft_;
         tokenId = tokenId_;
@@ -131,8 +132,6 @@ contract CDP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
 
         operations[0] = _getWithdrawAction(marketId, _amount);
         operations[1] = _getCallAction(
-            // Encode MyCustomData for callFunction
-            //abi.encode(MyCustomData({token: _token, repayAmount: repayAmount}))
             abi.encode(tradeDetails, loanAmt)
         );
         operations[2] = _getDepositAction(marketId, repayAmount);
@@ -157,15 +156,17 @@ contract CDP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         (TradeDetails[] memory tradeDetails, uint loanAmt) = abi.decode(data, (TradeDetails[], uint));
         uint256 balOfLoanedToken = IERC20(_WETH_).balanceOf(address(this));
         WETH9(_WETH_).withdraw(balOfLoanedToken);
+        require(address(this).balance >= tradeDetails[0].value, "Insufficient downPay+flashLoan to batchBuyWithETH");
 
-        require(IERC721(nft).ownerOf(tokenId) != address(this), "cdp owned the nft already");
+        require(IERC721(nft).ownerOf(tokenId) != address(this), "nbp owned the nft already");
         IGemSwap(NPics(beacon).getConfig(_GemSwap_)).batchBuyWithETH{value: address(this).balance}(tradeDetails);
-        require(IERC721(nft).ownerOf(tokenId) == address(this), "cdp not owned the nft yet");
+        require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
         IERC721(nft).approve(_bendWETHGateway_, tokenId);
         IDebtToken(_bendDebtWETH_).approveDelegation(_bendWETHGateway_, uint(-1));
         IWETHGateway(_bendWETHGateway_).borrowETH(loanAmt, nft, tokenId, address(this), 0);
 
+        require(address(this).balance >= balOfLoanedToken.add(2), "Insufficient balance to repay flashLoan");
         WETH9(_WETH_).deposit{value: balOfLoanedToken.add(2)}();
     }
 
@@ -197,94 +198,123 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     function implementation() public view returns(address) {  return implementations[0];  }
     mapping (bytes32 => address) public implementations;
 
-    mapping (address => address) public cbcs;     // uft => cbc
-    address[] public cbcA;
-    function cbcN() external view returns (uint) {  return cbcA.length;  }
+    mapping (address => address) public neos;     // uft => neo
+    address[] public neoA;
+    function neoN() external view returns (uint) {  return neoA.length;  }
     
-    mapping(address => mapping(uint => address payable)) public cdps;     // uft => tokenId => cdp
-    address[] public cdpA;
-    function cdpN() external view returns (uint) {  return cdpA.length;  }
+    mapping(address => mapping(uint => address payable)) public nbps;     // uft => tokenId => nbp
+    address[] public nbpA;
+    function nbpN() external view returns (uint) {  return nbpA.length;  }
     
-    function __NPics_init(address governor, address implCBC, address implCDP) public initializer {
+    function __NPics_init(address governor, address implNEO, address implNBP) public initializer {
         __Governable_init_unchained(governor);
         __ReentrancyGuard_init_unchained();
         __Context_init_unchained();
-        __NPics_init_unchained(implCBC, implCDP);
+        __NPics_init_unchained(implNEO, implNBP);
     }
 
-    function __NPics_init_unchained(address implCBC, address implCDP) internal initializer {
-        upgradeImplementationTo(implCBC, implCDP);
+    function __NPics_init_unchained(address implNEO, address implNBP) internal initializer {
+        upgradeImplementationTo(implNEO, implNBP);
         config[_GemSwap_]               = uint(0x83C8F28c26bF6aaca652Df1DbBE0e1b56F8baBa2);
     }
     
-    function upgradeImplementationTo(address implCBC, address implCDP) public governance {
-        implementations[_CBC_SHARD_]    = implCBC;
-        implementations[_CDP_SHARD_]    = implCDP;
+    function upgradeImplementationTo(address implNEO, address implNBP) public governance {
+        implementations[_SHARD_NEO_]    = implNEO;
+        implementations[_SHARD_NBP_]    = implNBP;
     }
     
-    function createCBC(address nft) public returns (address cbc) {
+    function createNEO(address nft) public returns (address neo) {
         //require(config[_permissionless_] != 0 || _msgSender() == governor);
         //require(nft != address(0), 'ZERO_ADDRESS');
         require(nft.isContract(), 'nft should isContract');
         require(IERC165(nft).supportsInterface(_INTERFACE_ID_ERC721), 'nft should supportsInterface(_INTERFACE_ID_ERC721)');
 
-        require(cbcs[nft] == address(0), 'the CBC exist already');
+        require(neos[nft] == address(0), 'the NEO exist already');
 
-        bytes memory bytecode = type(InitializableBeaconProxy).creationCode;
+        //bytes memory bytecode = type(InitializableBeaconProxy).creationCode;
+        bytes memory bytecode = type(BeaconProxyNEO).creationCode;
 
         bytes32 salt = keccak256(abi.encodePacked(nft));
         assembly {
-            cbc := create2(0, add(bytecode, 32), mload(bytecode), salt)
+            neo := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
-        InitializableBeaconProxy(payable(cbc)).__InitializableBeaconProxy_init(address(this), 0, abi.encodeWithSignature('__CBC_init(address)', nft));
+        //InitializableBeaconProxy(payable(neo)).__InitializableBeaconProxy_init(address(this), _SHARD_NEO_, abi.encodeWithSignature('__NEO_init(address)', nft));
+        NEO(neo).__NEO_init(nft);
 
-        cbcs[nft] = cbc;
-        cbcA.push(cbc);
-        emit CreateCBC(_msgSender(), nft, cbc, cbcA.length);
+        neos[nft] = neo;
+        neoA.push(neo);
+        emit CreateNEO(_msgSender(), nft, neo, neoA.length);
     }
-    event CreateCBC(address indexed creator, address indexed nft, address indexed cbc, uint count);
+    event CreateNEO(address indexed creator, address indexed nft, address indexed neo, uint count);
 
-    function createCDP(address nft, uint tokenId) public returns (address payable cdp) {
+    function createNBP(address nft, uint tokenId) public returns (address payable nbp) {
         //require(config[_permissionless_] != 0 || _msgSender() == governor);
         //require(nft != address(0), 'ZERO_ADDRESS');
         require(nft.isContract(), 'nft should isContract');
         require(IERC165(nft).supportsInterface(_INTERFACE_ID_ERC721), 'nft should supportsInterface(_INTERFACE_ID_ERC721)');
 
-        require(cdps[nft][tokenId] == address(0), 'the CDP exist already');
+        require(nbps[nft][tokenId] == address(0), 'the NBP exist already');
 
         bytes32 salt = keccak256(abi.encodePacked(nft, tokenId));
-        cdp = payable(Clones.cloneDeterministic(_BeaconProxyCDP_, salt));
-        CDP(cdp).__CDP_init(nft, tokenId);
+        nbp = payable(Clones.cloneDeterministic(_BeaconProxyNBP_, salt));
+        NBP(nbp).__NBP_init(nft, tokenId);
 
-        cdps[nft][tokenId] = cdp;
-        cdpA.push(cdp);
-        emit CreateCDP(_msgSender(), nft, tokenId, cdp, cdpA.length);
+        nbps[nft][tokenId] = nbp;
+        nbpA.push(nbp);
+        emit CreateNBP(_msgSender(), nft, tokenId, nbp, nbpA.length);
     }
-    event CreateCDP(address indexed creator, address indexed nft, uint indexed tokenId, address cdp, uint count);
+    event CreateNBP(address indexed creator, address indexed nft, uint indexed tokenId, address nbp, uint count);
 
     function downPayWithETH(address nft, uint tokenId, TradeDetails[] memory tradeDetails, uint loanAmt) public payable nonReentrant {
-        address payable cdp = cdps[nft][tokenId];
-        if(cdp == address(0))
-            cdp = createCDP(nft, tokenId);
-        CDP(cdp).downPayWithETH{value: msg.value}(tradeDetails, loanAmt);
+        require(tradeDetails.length == 1, "tradeDetails.length != 1");
+        require(msg.value.add(loanAmt) >= tradeDetails[0].value.add(2), "Insufficient down payment");
 
-        address cbc = cbcs[nft];
-        if(cbc == address(0))
-            cbc = createCBC(nft);
-        CBC(cbc).mint_(_msgSender(), tokenId);
+        address payable nbp = nbps[nft][tokenId];
+        if(nbp == address(0))
+            nbp = createNBP(nft, tokenId);
+        NBP(nbp).downPayWithETH{value: msg.value}(tradeDetails, loanAmt);
 
-        emit DownPay(_msgSender(), nft, tokenId, msg.value.sub(address(this).balance), loanAmt);
+        address neo = neos[nft];
+        if(neo == address(0))
+            neo = createNEO(nft);
+        NEO(neo).mint_(_msgSender(), tokenId);
+
+        emit DownPayWithETH(_msgSender(), nft, tokenId, msg.value.sub(address(this).balance), loanAmt);
 
         if(address(this).balance > 0)
             _msgSender().transfer(address(this).balance);
     }
-    event DownPay(address indexed sender, address indexed nft, uint indexed tokenId, uint value, uint loanAmt);
+    event DownPayWithETH(address indexed sender, address indexed nft, uint indexed tokenId, uint value, uint loanAmt);
 
-    function downPayBatchBuyWithETH(address nft, uint tokenId, bytes memory dataBatchBuyWithETH, uint loanAmt) public payable {
+    function downPayBatchBuyWithETH(address nft, uint tokenId, bytes memory dataBatchBuyWithETH, uint loanAmt) external payable {
         (bytes4 batchBuyWithETH, TradeDetails[] memory tradeDetails) = abi.decode(dataBatchBuyWithETH, (bytes4, TradeDetails[]));
         require(batchBuyWithETH == IGemSwap.batchBuyWithETH.selector, "not batchBuyWithETH.selector");
         downPayWithETH(nft, tokenId, tradeDetails, loanAmt);
     }
+
+    function getLoanReserveBorrowAmount(address nftAsset, uint nftTokenId) external view returns (address reserveAsset, uint256 repayDebtAmount) {
+        uint loanId = ILendPoolLoan(_LendPoolLoan_).getCollateralLoanId(nftAsset, nftTokenId);
+        if(loanId == 0)
+            return (address(0), 0);
+        return ILendPoolLoan(_LendPoolLoan_).getLoanReserveBorrowAmount(loanId);
+    }
+    
+    function repayETH(address nftAsset, uint nftTokenId, uint amount) external payable nonReentrant returns (uint repayAmount, bool repayAll) {
+        if(amount > 0)
+            (repayAmount, repayAll) = IWETHGateway(_bendWETHGateway_).repayETH{value: msg.value}(nftAsset, nftTokenId, amount);
+        if(amount == 0 || repayAll) {
+            NEO neo = NEO(neos[nftAsset]);
+            NBP(nbps[nftAsset][nftTokenId]).withdraw_(neo.ownerOf(nftTokenId));
+            neo.burn_(nftTokenId);
+        }
+
+        emit RepayETH(_msgSender(), nftAsset, nftTokenId, repayAmount, repayAll);
+
+        if(address(this).balance > 0)
+            _msgSender().transfer(address(this).balance);
+    }
+    event RepayETH(address indexed sender, address indexed nftAsset, uint indexed nftTokenId, uint repayAmount, bool repayAll);
+
     receive () external payable {
         
     }
@@ -294,9 +324,15 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
 }
 
 
-contract BeaconProxyCDP is Proxy, Constants {
-  function _implementation() virtual override internal view returns (address) {
-        return IBeacon(_NPics_).implementations(_CDP_SHARD_);
+contract BeaconProxyNEO is Proxy, Constants {
+    function _implementation() virtual override internal view returns (address) {
+        return IBeacon(_NPics_).implementations(_SHARD_NEO_);
+  }
+}
+
+contract BeaconProxyNBP is Proxy, Constants {
+    function _implementation() virtual override internal view returns (address) {
+        return IBeacon(_NPics_).implementations(_SHARD_NBP_);
   }
 }
 
@@ -309,6 +345,11 @@ struct TradeDetails {
 
 interface IDebtToken {
     function approveDelegation(address delegatee, uint256 amount) external;
+}
+
+interface ILendPoolLoan {
+    function getCollateralLoanId(address nftAsset, uint256 nftTokenId) external view returns (uint256);
+    function getLoanReserveBorrowAmount(uint256 loanId) external view returns (address, uint256);
 }
 
 interface IGemSwap {
