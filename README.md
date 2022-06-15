@@ -1,5 +1,5 @@
 
-![Dusai's GitHub stats](https://github-readme-stats.vercel.app/api?username=npics&show_icons=true&theme=radical)
+![Dusai's GitHub stats](https://github-readme-stats.vercel.app/api?username=NPICS-Hello&show_icons=true&theme=radical)
 
 # NBP Protocol
 The protocol architecture of NBP( NFT-backed Position)
