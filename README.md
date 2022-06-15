@@ -1,10 +1,15 @@
 
-![Dusai's GitHub stats](https://github-readme-stats.vercel.app/api?username=NPICS-Hello&show_icons=true&theme=radical)
+<div align="center" style="margin-top: 1em; margin-bottom: 3em;">
+  <a href="https://npics.xyz"><img alt="NPics logo" src="./npics-transparent.png" alt="npics.xyz" width="150"></a>
+</div>
+
 
 # NFT-backed Position
+
 The protocol architecture of NBP( NFT-backed Position)
 
 ## What is NBP?
+
 One-click down payment and financing to purchase a Blue-chip, which achieved through NFT-backed Postion (NBP) in just one call.
 
 NBP stands for NFT-backed Position protocol, a bundle of smart contracts which runs on the Ethereum blockchain now.
@@ -65,6 +70,7 @@ Reference:
 [https://makerdao.com/en/whitepaper/#the-dai-stablecoin](https://makerdao.com/en/whitepaper/#the-dai-stablecoin)
 
 **IV. Beacon Proxy**
+
 As a highly competitive Nft-Fi product, NPics will continue to iterate rapidly in accordance with planning and industry rhythms. In order to keep pace with product upgrades, especially the above-mentioned architectures ( NEO-NFT, NBP, etc.) , we adopted the beacon
  proxy pattern (EIP-1967 standard) at the beginning, a gas-efficient pattern that allows multiple proxies to be upgraded to a different implementation in a single transaction, and the upgrade operations that are sent to the beacon instead of to the proxy contract, only underlying logic to be upgraded when needed, all proxies that follow that beacon are automatically upgraded. which is similar to the factory method of design pattern
 
@@ -74,6 +80,7 @@ https://eips.ethereum.org/EIPS/eip-1967
 
 
 **V. Minimum Proxy**
+
 In view of the logic that each NFT mortgage generation needs to create a NBP contract, in order to save gas, NPics uses the minimum proxy contract( EIP-1167 standard) as an effort to reduce gas costs as much as possible., which is only 45 bytes of proxy contract sizeand has zero impact on runtime gas costs.
 
 Reference: 
@@ -84,12 +91,14 @@ Reference:
 
 
 ## Thanks
+
 The NBP protocol architecture references the design management model of [CDP](https://docs.makerdao.com/smart-contract-modules/proxy-module/cdp-manager-detailed-documentation) of MarkDAO in the smart contract part and adopted [GEM.XYZ](https://www.gem.xyz) and [DYDX](https://github.com/dydxprotocol) and BendDAO(https://github.com/BendDAO/bend-protocol) part of the code.
 
 We are very grateful to MarkDAO, GEM, DYDX and BendDAO for providing us with an excellent DeFi platform.
 
 
 ## Community
+
 We welcome more volunteers to join us in building a fast-growing volunteer community , [joining us](https://discord.gg/6qb739B9)
 
 ## Getting Started
