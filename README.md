@@ -32,10 +32,8 @@ After that, users can choose to repay and redeem NFT by themselves, or they can 
 The platforms that support flash loan are: uniswap, aave, dydx, among which uniswap supports lending of any erc20 token, but needs to pay 0.3% of the loan as a handling fee. AAVE supports most mainstream tokens, and needs to pay 0.09% as a handling fee. Among the three, we chose dydx. Although it only supports WETH, DAI, and USDC, the fee is the lowest, only 2Gwei.
 
 Reference: 
-
-[https://github.com/Dapp-Learning-DAO/Dapp-Learning/blob/main/basic/20-flash-loan/readme.md](https://github.com/Dapp-Learning-DAO/Dapp-Learning/blob/main/basic/20-flash-loan/readme.md)
-
-[https://docs.aave.com/developers/guides/flash-loans](https://docs.aave.com/developers/guides/flash-loans)
+[Flash-Loan](https://github.com/Dapp-Learning-DAO/Dapp-Learning/blob/main/basic/20-flash-loan/readme.md)
+[AAVE Flash-loans](https://docs.aave.com/developers/guides/flash-loans)
 
 
 **II. NEO-NFT ( NFT Everlasting Options)** 
@@ -47,14 +45,10 @@ A NBP represents a long term bet on an underlying NFT and has no expiry, and a s
 Just like warrants, CBBCs are issued with a strike or exercise price, an expiration date, a conversion ratio and other similar terms. Concept-wise, CBBCs work in much the same way as index futures to leverage on the rise or fall of a market.
 
 Reference: 
-
-[https://www.paradigm.xyz/2021/05/everlasting-options](https://www.paradigm.xyz/2021/05/everlasting-options)
-
-[https://01exchange.medium.com/01s-everlasting-options-6d918d461a84](https://01exchange.medium.com/01s-everlasting-options-6d918d461a84)
-
-[https://en.wikipedia.org/wiki/Callable_bull/bear_contract](https://en.wikipedia.org/wiki/Callable_bull/bear_contract)
-
-[https://www.hkex.com.hk/Global/Exchange/FAQ/Products/Securities/CBBC?sc_lang=en](https://www.hkex.com.hk/Global/Exchange/FAQ/Products/Securities/CBBC?sc_lang=en)
+[everlasting-options](https://www.paradigm.xyz/2021/05/everlasting-options)
+[everlasting-options](https://01exchange.medium.com/01s-everlasting-options-6d918d461a84)
+[Callable_bull bear_contract](https://en.wikipedia.org/wiki/Callable_bull/bear_contract)
+[CBBC](https://www.hkex.com.hk/Global/Exchange/FAQ/Products/Securities/CBBC?sc_lang=en)
 
 
 **III. NBP- NFT-backed Position**
@@ -64,19 +58,15 @@ When depositng NFT to lend principal , the lending protocol will mint a correspo
 In order to increase the liquidity of NFT debt and allow that debt to change hands, we designed the mechanism of NEO+NBP. Each NFT debt ( bendNFT) will be held by an independent nbp (NFT Backed Position) smart contract,  which is controlled by the corresponding neo NFT. Holding a neo-NFT means having a collateralized debt position, which can be freely transferred and sold. Likewise, the address will receive all claimable yields and airdrops while holding neo-nft.
 
 Reference:
-
-[https://makerdao.com/en/whitepaper/sai/#collateralized-debt-position-smart-contracts](https://makerdao.com/en/whitepaper/sai/#collateralized-debt-position-smart-contracts)
-
-[https://makerdao.com/en/whitepaper/#the-dai-stablecoin](https://makerdao.com/en/whitepaper/#the-dai-stablecoin)
+[MarkDao CDPs](https://makerdao.com/en/whitepaper/sai/#collateralized-debt-position-smart-contracts)
+[The DAI stablecoin](https://makerdao.com/en/whitepaper/#the-dai-stablecoin)
 
 **IV. Beacon Proxy**
 
 As a highly competitive Nft-Fi product, NPics will continue to iterate rapidly in accordance with planning and industry rhythms. In order to keep pace with product upgrades, especially the above-mentioned architectures ( NEO-NFT, NBP, etc.) , we adopted the beacon
  proxy pattern (EIP-1967 standard) at the beginning, a gas-efficient pattern that allows multiple proxies to be upgraded to a different implementation in a single transaction, and the upgrade operations that are sent to the beacon instead of to the proxy contract, only underlying logic to be upgraded when needed, all proxies that follow that beacon are automatically upgraded. which is similar to the factory method of design pattern
 
-Reference: 
-
-https://eips.ethereum.org/EIPS/eip-1967
+Reference: [EIP-1967](https://eips.ethereum.org/EIPS/eip-1967)
 
 
 **V. Minimum Proxy**
@@ -84,15 +74,13 @@ https://eips.ethereum.org/EIPS/eip-1967
 In view of the logic that each NFT mortgage generation needs to create a NBP contract, in order to save gas, NPics uses the minimum proxy contract( EIP-1167 standard) as an effort to reduce gas costs as much as possible., which is only 45 bytes of proxy contract sizeand has zero impact on runtime gas costs.
 
 Reference: 
-
-[https://eips.ethereum.org/EIPS/eip-1167](https://eips.ethereum.org/EIPS/eip-1167)
-
-[https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1167.md](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1167.md)
+[EIP-1167](https://eips.ethereum.org/EIPS/eip-1167)
+[eip-1167 -md](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1167.md)
 
 
 ## Thanks
 
-The NBP protocol architecture references the design management model of [CDP](https://docs.makerdao.com/smart-contract-modules/proxy-module/cdp-manager-detailed-documentation) of MarkDAO in the smart contract part and adopted [GEM.XYZ](https://www.gem.xyz) and [DYDX](https://github.com/dydxprotocol) and BendDAO(https://github.com/BendDAO/bend-protocol) part of the code.
+The NBP protocol architecture references the design management model of [CDP](https://docs.makerdao.com/smart-contract-modules/proxy-module/cdp-manager-detailed-documentation) of MarkDAO in the smart contract part and adopted [GEM.XYZ](https://www.gem.xyz) and [DYDX](https://github.com/dydxprotocol) and [BendDAO](https://github.com/BendDAO/bend-protocol) part of the code.
 
 We are very grateful to MarkDAO, GEM, DYDX and BendDAO for providing us with an excellent DeFi platform.
 
