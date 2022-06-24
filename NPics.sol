@@ -9,12 +9,6 @@ import "./DydxFlashloanBase.sol";
 import "./IWETHGateway.sol";
 
 contract Constants {
-    //bytes32 internal constant _permissionless_  = 'permissionless';
-    //uint internal constant MAX_FEE_RATE      = 0.10 ether;   // 10%
-
-    bytes32 internal constant _GemSwap_         = "GemSwap";
-    bytes32 internal constant _gem_converter_   = "gem_converter";
-
     address internal constant _dYdX_SoloMargin_ = 0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e;
     address internal constant _WETH_            = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
@@ -90,9 +84,8 @@ contract NEO is ERC721UpgradeSafe, Constants {      // NFT Everlasting Options
 }
 
 contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, Constants {      // NFT Backed Position
-    //using SafeERC20 for IERC20;
     using SafeMath for uint;
-    //using Strings for uint;
+    using Address for address;
     
     address payable public beacon;
     address public nft;
@@ -126,7 +119,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         IERC20(_BEND_).transfer(to, amt);
     }
 
-    function downPayWithETH(TradeDetails[] memory tradeDetails, uint loanAmt) public payable onlyBeacon {
+    function downPayWithETH(address market, bytes calldata data, uint price, uint loanAmt) public payable onlyBeacon {
         address _solo = _dYdX_SoloMargin_;
         address _token = _WETH_;
         // Get marketId from token address
@@ -145,7 +138,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
 
         operations[0] = _getWithdrawAction(marketId, _amount);
         operations[1] = _getCallAction(
-            abi.encode(tradeDetails, loanAmt)
+            abi.encode(market, data, price, loanAmt)
         );
         operations[2] = _getDepositAction(marketId, repayAmount);
 
@@ -166,13 +159,15 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         bytes memory data
     ) override external {
         require(_msgSender() == _dYdX_SoloMargin_ && sender == address(this) && account.owner == address(this) && account.number == 1, "callFunction param check fail");
-        (TradeDetails[] memory tradeDetails, uint loanAmt) = abi.decode(data, (TradeDetails[], uint));
+        (address market, bytes memory data_, uint price, uint loanAmt) = abi.decode(data, (address, bytes, uint, uint));
         uint balOfLoanedToken = IERC20(_WETH_).balanceOf(address(this));
         WETH9(_WETH_).withdraw(balOfLoanedToken);
-        require(address(this).balance >= tradeDetails[0].value, "Insufficient downPay+flashLoan to batchBuyWithETH");
+        require(address(this).balance >= price, "Insufficient downPay+flashLoan < price");
 
         require(IERC721(nft).ownerOf(tokenId) != address(this), "nbp owned the nft already");
-        IGemSwap(NPics(beacon).getConfig(_GemSwap_)).batchBuyWithETH{value: address(this).balance}(tradeDetails);
+        require(market.isContract(), "market.isContract == false");
+        (bool success, ) = market.call{value: price}(data_);
+        require(success, "call market.buy failure");
         require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
         IERC721(nft).approve(_bendWETHGateway_, tokenId);
@@ -228,8 +223,6 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
 
     function __NPics_init_unchained(address implNEO, address implNBP) internal initializer {
         upgradeImplementationTo(implNEO, implNBP);
-        config[_GemSwap_]               = uint(0x83C8F28c26bF6aaca652Df1DbBE0e1b56F8baBa2);
-        config[_gem_converter_]         = uint(0x97Fb625482464eb51E8F65291515de1F68526337);
     }
     
     function upgradeImplementationTo(address implNEO, address implNBP) public governance {
@@ -238,21 +231,17 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     
     function createNEO(address nft) public returns (address neo) {
-        //require(config[_permissionless_] != 0 || _msgSender() == governor);
-        //require(nft != address(0), 'ZERO_ADDRESS');
         require(nft.isContract(), 'nft should isContract');
         require(IERC165(nft).supportsInterface(_INTERFACE_ID_ERC721), 'nft should supportsInterface(_INTERFACE_ID_ERC721)');
 
         require(neos[nft] == address(0), 'the NEO exist already');
 
-        //bytes memory bytecode = type(InitializableBeaconProxy).creationCode;
         bytes memory bytecode = type(BeaconProxyNEO).creationCode;
 
         bytes32 salt = keccak256(abi.encodePacked(nft));
         assembly {
             neo := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
-        //InitializableBeaconProxy(payable(neo)).__InitializableBeaconProxy_init(address(this), _SHARD_NEO_, abi.encodeWithSignature('__NEO_init(address)', nft));
         NEO(neo).__NEO_init(nft);
 
         neos[nft] = neo;
@@ -262,8 +251,6 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     event CreateNEO(address indexed creator, address indexed nft, address indexed neo, uint count);
 
     function createNBP(address nft, uint tokenId) public returns (address payable nbp) {
-        //require(config[_permissionless_] != 0 || _msgSender() == governor);
-        //require(nft != address(0), 'ZERO_ADDRESS');
         require(nft.isContract(), 'nft should isContract');
         require(IERC165(nft).supportsInterface(_INTERFACE_ID_ERC721), 'nft should supportsInterface(_INTERFACE_ID_ERC721)');
 
@@ -283,16 +270,15 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
         (, , r, , , ,) = ILendPool(_bendLendPool_).getNftCollateralData(nft, _WETH_);
     }
 
-    function downPayWithETH(address nft, uint tokenId, TradeDetails[] memory tradeDetails, uint loanAmt) public payable nonReentrant {
-        require(tradeDetails.length == 1, "tradeDetails.length != 1");
+    function downPayWithETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt) public payable nonReentrant {
         require(loanAmt <= availableBorrowsInETH(nft), "Too much borrowETH");
         uint value = address(this).balance;
-        require(value.add(loanAmt) >= tradeDetails[0].value.add(2), "Insufficient down payment");
+        require(value.add(loanAmt) >= price.add(2), "Insufficient down payment");
 
         address payable nbp = nbps[nft][tokenId];
         if(nbp == address(0))
             nbp = createNBP(nft, tokenId);
-        NBP(nbp).downPayWithETH{value: value}(tradeDetails, loanAmt);
+        NBP(nbp).downPayWithETH{value: value}(market, data, price, loanAmt);
 
         address neo = neos[nft];
         if(neo == address(0))
@@ -306,78 +292,11 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     event DownPayWithETH(address indexed sender, address indexed nft, uint indexed tokenId, uint value, uint loanAmt);
 
-    function downPayBatchBuyWithETH(address nft, uint tokenId, bytes calldata data, uint loanAmt) external payable {
-        bytes4 sig = data[0] |  bytes4(data[1]) >> 8 | bytes4(data[2]) >> 16  | bytes4(data[3]) >> 24;
-        require(sig == IGemSwap.batchBuyWithETH.selector, "not batchBuyWithETH.selector");
-        TradeDetails[] memory tradeDetails = abi.decode(data[4:], (TradeDetails[]));
-        downPayWithETH(nft, tokenId, tradeDetails, loanAmt);
-    }
-
-    function downPayBatchBuyWithERC20s(address nft, uint tokenId, bytes calldata data, uint loanAmt) external payable {
-        bytes4 sig = data[0] |  bytes4(data[1]) >> 8 | bytes4(data[2]) >> 16  | bytes4(data[3]) >> 24;
-        require(sig == IGemSwap.batchBuyWithERC20s.selector, "not batchBuyWithErc20s.selector");
-        (ERC20Details memory erc20Details,
-        TradeDetails[] memory tradeDetails,
-        ConverstionDetails[] memory converstionDetails,
-        address[] memory dustTokens) = abi.decode(data[4:], (ERC20Details, TradeDetails[], ConverstionDetails[], address[]));
-
-        // transfer ERC20 tokens from the sender to this contract
-        for (uint256 i = 0; i < erc20Details.tokenAddrs.length; i++) {
-            (bool success, ) = erc20Details.tokenAddrs[i].call(abi.encodeWithSelector(0x23b872dd, msg.sender, address(this), erc20Details.amounts[i]));
-            success;
-        }
-
-        // Convert any assets if needed
-        _conversionHelper(converstionDetails);
-
-        // execute trades
-        downPayWithETH(nft, tokenId, tradeDetails, loanAmt);
-
-        // return dust tokens (if any)
-        _returnDust(dustTokens);
-    }
-
-    function _conversionHelper(ConverstionDetails[] memory _converstionDetails) internal {
-        for (uint256 i = 0; i < _converstionDetails.length; i++) {
-            // convert to desired asset
-            (bool success, ) = address(config[_gem_converter_]).delegatecall(_converstionDetails[i].conversionData);
-            // check if the call passed successfully
-            _checkCallResult(success);
-        }
-    }
-
-    function _returnDust(address[] memory _tokens) internal {
-        // return remaining ETH (if any)
-        assembly {
-            if gt(selfbalance(), 0) {
-                let callStatus := call(
-                    gas(),
-                    caller(),
-                    selfbalance(),
-                    0,
-                    0,
-                    0,
-                    0
-                )
-            }
-        }
-        // return remaining tokens (if any)
-        for (uint256 i = 0; i < _tokens.length; i++) {
-            if (IERC20(_tokens[i]).balanceOf(address(this)) > 0) {
-                (bool success, ) = _tokens[i].call(abi.encodeWithSelector(0xa9059cbb, msg.sender, IERC20(_tokens[i]).balanceOf(address(this))));
-                success;
-            }
-        }
-    }
-
-    function _checkCallResult(bool _success) internal pure {
-        if (!_success) {
-            // Copy revert reason from call
-            assembly {
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
-            }
-        }
+    function downPayWithWETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt, uint wethAmt) external payable {
+        require(wethAmt >= IERC20(_WETH_).balanceOf(_msgSender()), "Insufficient WETH");
+        IERC20(_WETH_).transferFrom(_msgSender(), address(this), wethAmt);
+        WETH9(_WETH_).withdraw(wethAmt);
+        downPayWithETH(nft, tokenId, market, data, price, loanAmt);
     }
 
     function getLoanReserveBorrowAmount(address nftAsset, uint nftTokenId) public view returns(address reserveAsset, uint repayDebtAmount) {
@@ -489,31 +408,6 @@ contract BeaconProxyNBP is Proxy, Constants {
 interface WETH9 {
     function deposit() external payable;
     function withdraw(uint wad) external;
-}
-
-struct TradeDetails {
-    uint marketId;
-    uint value;
-    bytes tradeData;
-}
-
-struct ERC20Details {
-    address[] tokenAddrs;
-    uint256[] amounts;
-}
-
-struct ConverstionDetails {
-    bytes conversionData;
-}
-
-interface IGemSwap {
-    function batchBuyWithETH(TradeDetails[] memory tradeDetails) payable external;
-    function batchBuyWithERC20s(
-        ERC20Details memory erc20Details,
-        TradeDetails[] memory tradeDetails,
-        ConverstionDetails[] memory converstionDetails,
-        address[] memory dustTokens
-    ) payable external;
 }
 
 interface IDebtToken {
