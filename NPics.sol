@@ -266,6 +266,37 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     event CreateNBP(address indexed creator, address indexed nft, uint indexed tokenId, address nbp, uint count);
 
+    // calculates the CREATE2 address for a neo without making any external calls
+    function neoFor(address nft) public view returns (address neo) {
+        neo = address(uint(keccak256(abi.encodePacked(
+                hex'ff',
+                address(this),
+                keccak256(abi.encodePacked(nft)),
+                keccak256(abi.encodePacked(type(BeaconProxyNEO).creationCode))
+            ))));
+    }
+
+    // return neos if neo exist, or else return neoFor
+    function getNeoFor(address nft) public view returns (address neo) {
+        neo = neos[nft];
+        if(neo == address(0))
+            neo = neoFor(nft);
+    }
+    
+    // calculates the CREATE2 address for a nbp without making any external calls
+    function nbpFor(address nft, uint tokenId) public view returns (address nbp) {
+        bytes32 salt = keccak256(abi.encodePacked(nft, tokenId));
+        nbp = Clones.predictDeterministicAddress(_BeaconProxyNBP_, salt);
+    }
+
+    // return nbps if nbp exist, or else return nbpFor
+    function getNbpFor(address nft, uint tokenId) public view returns (address nbp) {
+        nbp = nbps[nft][tokenId];
+        if(nbp == address(0))
+            nbp = nbpFor(nft, tokenId);
+    }
+    
+
     function availableBorrowsInETH(address nft) public view returns(uint r) {
         (, , r, , , ,) = ILendPool(_bendLendPool_).getNftCollateralData(nft, _WETH_);
     }
