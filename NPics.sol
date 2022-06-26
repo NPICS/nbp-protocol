@@ -123,8 +123,8 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         _flashLoan(abi.encode(msg.sig, market, data, price, loanAmt));
     }
 
-    function acceptOrder_(address market, bytes calldata data) external onlyBeacon {
-        _flashLoan(abi.encode(msg.sig, market, data));
+    function acceptOrder_(address market, bytes calldata data, address approveTo) external onlyBeacon {
+        _flashLoan(abi.encode(msg.sig, market, data, approveTo));
     }
 
     function _flashLoan(bytes memory data) internal {
@@ -182,8 +182,8 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
 
         require(IERC721(nft).ownerOf(tokenId) != address(this), "nbp owned the nft already");
         require(market.isContract(), "market.isContract == false");
-        (bool success, ) = market.call{value: price}(data_);
-        require(success, "call market.buy failure");
+        (bool success, bytes memory result) = market.call{value: price}(data_);
+        require(success, string(abi.encodePacked("call market.buy failure : ", _callRevertMessgae(result))));
         require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
         IERC721(nft).approve(_bendWETHGateway_, tokenId);
@@ -195,7 +195,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
     }
 
     function _acceptOrder(bytes memory data) internal {
-        (, address market, bytes memory data_) = abi.decode(data, (bytes4, address, bytes));
+        (, address market, bytes memory data_, address approveTo) = abi.decode(data, (bytes4, address, bytes, address));
         uint balOfLoanedToken = IERC20(_WETH_).balanceOf(address(this));
         WETH9(_WETH_).withdraw(balOfLoanedToken);
 
@@ -203,13 +203,22 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         require(repayAll, "Insufficient flashLoan < repayDebt");
         require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
-        IERC721(nft).approve(market, tokenId);
-        (bool success, ) = market.call(data_);
-        require(success, "call market.acceptOrder failure");
+        IERC721(nft).approve(approveTo, tokenId);
+        (bool success, bytes memory result) = market.call(data_);
+        require(success, string(abi.encodePacked("call market.acceptOrder failure : ", _callRevertMessgae(result))));
         WETH9(_WETH_).withdraw(IERC20(_WETH_).balanceOf(address(this)));
 
         require(address(this).balance >= balOfLoanedToken.add(2), "Insufficient balance to repay flashLoan");
         WETH9(_WETH_).deposit{value: balOfLoanedToken.add(2)}();
+    }
+
+    function _callRevertMessgae(bytes memory result) internal pure returns(string memory) {
+        if (result.length < 68)
+            return "";
+        assembly {
+            result := add(result, 0x04)
+        }
+        return abi.decode(result, (string));
     }
 
     function onERC721Received(address operator, address from, uint tokenId_, bytes calldata data) override external returns (bytes4) {
@@ -450,7 +459,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     event RewardsClaimed(address indexed user, uint amount);
 
-    function acceptOrder(address nft, uint tokenId, address market, bytes calldata data) external nonReentrant {
+    function acceptOrder(address nft, uint tokenId, address market, bytes calldata data, address approveTo) external nonReentrant {
         address payable sender = _msgSender();
         NEO neo = NEO(neos[nft]);
         require(address(neo) != address(0) && address(neo).isContract(), "INVALID neo");
@@ -459,7 +468,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
 
         NBP nbp = NBP(nbps[nft][tokenId]);
         require(address(nbp) != address(0) && address(nbp).isContract(), "INVALID nbp");
-        nbp.acceptOrder_(market, data);
+        nbp.acceptOrder_(market, data, approveTo);
         uint rwd = nbp.claimRewardsTo_(sender);
         emit RewardsClaimed(sender, rwd);
 
