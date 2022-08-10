@@ -27,6 +27,15 @@ contract Constants {
     bytes32 internal constant _SHARD_NBP_       = bytes32(uint(1));
 
     bytes4 internal constant _INTERFACE_ID_ERC721 = 0x80ac58cd;
+
+    function _callRevertMessgae(bytes memory result) internal pure returns(string memory) {
+        if (result.length < 68)
+            return "";
+        assembly {
+            result := add(result, 0x04)
+        }
+        return abi.decode(result, (string));
+    }
 }
 
 contract NEO is ERC721UpgradeSafe, Constants {      // NFT Everlasting Options
@@ -123,7 +132,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         _flashLoan(abi.encode(msg.sig, market, data, price, loanAmt));
     }
 
-    function acceptOrder_(address market, bytes calldata data, address approveTo) external onlyBeacon {
+    function acceptOffer_(address market, bytes calldata data, address approveTo) external onlyBeacon {
         _flashLoan(abi.encode(msg.sig, market, data, approveTo));
     }
 
@@ -168,8 +177,8 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         bytes4 sig = abi.decode(data, (bytes4));
         if(sig == this.downPayWithETH_.selector)
             _downPayWithETH(data);
-        else if(sig == this.acceptOrder_.selector)
-            _acceptOrder(data);
+        else if(sig == this.acceptOffer_.selector)
+            _acceptOffer(data);
         else
             revert("callFunction INVALID selector");
     }
@@ -194,7 +203,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         WETH9(_WETH_).deposit{value: balOfLoanedToken.add(2)}();
     }
 
-    function _acceptOrder(bytes memory data) internal {
+    function _acceptOffer(bytes memory data) internal {
         (, address market, bytes memory data_, address approveTo) = abi.decode(data, (bytes4, address, bytes, address));
         uint balOfLoanedToken = IERC20(_WETH_).balanceOf(address(this));
         WETH9(_WETH_).withdraw(balOfLoanedToken);
@@ -203,22 +212,12 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         require(repayAll, "Insufficient flashLoan < repayDebt");
         require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
-        IERC721(nft).approve(approveTo, tokenId);
-        (bool success, bytes memory result) = market.call(data_);
-        require(success, string(abi.encodePacked("call market.acceptOrder failure : ", _callRevertMessgae(result))));
+        IERC721(nft).transferFrom(address(this), beacon, tokenId);
+        NPics(beacon).acceptOffer_(nft, tokenId, market, data_, approveTo);
         WETH9(_WETH_).withdraw(IERC20(_WETH_).balanceOf(address(this)));
 
         require(address(this).balance >= balOfLoanedToken.add(2), "Insufficient balance to repay flashLoan");
         WETH9(_WETH_).deposit{value: balOfLoanedToken.add(2)}();
-    }
-
-    function _callRevertMessgae(bytes memory result) internal pure returns(string memory) {
-        if (result.length < 68)
-            return "";
-        assembly {
-            result := add(result, 0x04)
-        }
-        return abi.decode(result, (string));
     }
 
     function onERC721Received(address operator, address from, uint tokenId_, bytes calldata data) override external returns (bytes4) {
@@ -459,7 +458,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     event RewardsClaimed(address indexed user, uint amount);
 
-    function acceptOrder(address nft, uint tokenId, address market, bytes calldata data, address approveTo) external nonReentrant {
+    function acceptOffer(address nft, uint tokenId, address market, bytes calldata data, address approveTo) external nonReentrant {
         address payable sender = _msgSender();
         NEO neo = NEO(neos[nft]);
         require(address(neo) != address(0) && address(neo).isContract(), "INVALID neo");
@@ -468,16 +467,24 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
 
         NBP nbp = NBP(nbps[nft][tokenId]);
         require(address(nbp) != address(0) && address(nbp).isContract(), "INVALID nbp");
-        nbp.acceptOrder_(market, data, approveTo);
+        nbp.acceptOffer_(market, data, approveTo);
         uint rwd = nbp.claimRewardsTo_(sender);
         emit RewardsClaimed(sender, rwd);
 
-        emit AcceptOrder(sender, nft, tokenId, address(this).balance);
+        emit AcceptOffer(sender, nft, tokenId, address(this).balance);
 
         if(address(this).balance > 0)
             sender.transfer(address(this).balance);
     }
-    event AcceptOrder(address indexed sender, address indexed nft, uint indexed tokenId, uint value);
+    event AcceptOffer(address indexed sender, address indexed nft, uint indexed tokenId, uint value);
+
+    function acceptOffer_(address nft, uint tokenId, address market, bytes calldata data, address approveTo) external {
+        require(msg.sender == nbps[nft][tokenId], 'Only nbp');
+        IERC721(nft).approve(approveTo, tokenId);
+        (bool success, bytes memory result) = market.call(data);
+        require(success, string(abi.encodePacked("call market.acceptOffer failure : ", _callRevertMessgae(result))));
+        IERC20(_WETH_).transfer(msg.sender, IERC20(_WETH_).balanceOf(address(this)));
+    }
 
     receive () external payable {
         
