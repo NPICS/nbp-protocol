@@ -26,6 +26,9 @@ contract Constants {
     bytes32 internal constant _SHARD_NEO_       = 0;
     bytes32 internal constant _SHARD_NBP_       = bytes32(uint(1));
 
+    bytes32 internal constant _fee_             = "fee";
+    bytes32 internal constant _feeTo_           = "feeTo";
+
     bytes4 internal constant _INTERFACE_ID_ERC721 = 0x80ac58cd;
 
     function _callRevertMessgae(bytes memory result) internal pure returns(string memory) {
@@ -249,11 +252,11 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     function implementation() public view returns(address) {  return implementations[0];  }
     mapping (bytes32 => address) public implementations;
 
-    mapping (address => address) public neos;     // uft => neo
+    mapping (address => address) public neos;     // nft => neo
     address[] public neoA;
     function neoN() external view returns (uint) {  return neoA.length;  }
     
-    mapping(address => mapping(uint => address payable)) public nbps;     // uft => tokenId => nbp
+    mapping(address => mapping(uint => address payable)) public nbps;     // nft => tokenId => nbp
     address[] public nbpA;
     function nbpN() external view returns (uint) {  return nbpA.length;  }
     
@@ -265,6 +268,8 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
 
     function __NPics_init_unchained(address implNEO, address implNBP) internal initializer {
+        config[_fee_]   = 0.02e18;      //2%
+        config[_feeTo_] = uint(0xc5dAe1a5fB39C4DC57713Bcb9cF936B99a173a32);
         upgradeImplementationTo(implNEO, implNBP);
     }
     
@@ -483,6 +488,8 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
         IERC721(nft).approve(approveTo, tokenId);
         (bool success, bytes memory result) = market.call(data);
         require(success, string(abi.encodePacked("call market.acceptOffer failure : ", _callRevertMessgae(result))));
+        if(config[_fee_] > 0 && config[_feeTo_] != 0)
+            IERC20(_WETH_).transfer(address(config[_feeTo_]), IERC20(_WETH_).balanceOf(address(this)).mul(config[_fee_]).div(1e18));    
         IERC20(_WETH_).transfer(msg.sender, IERC20(_WETH_).balanceOf(address(this)));
     }
 
