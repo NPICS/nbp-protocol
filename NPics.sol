@@ -144,7 +144,8 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
     function claimRewardsTo_(address to) external onlyBeacon returns(uint amt) {
         address[] memory assets = new address[](1);
         assets[0] = _bankDebtWETH(bankId);
-        amt = IBendIncentives(_bankIncentives(bankId)).claimRewards(assets, uint(-1));
+        IBendIncentives(_bankIncentives(bankId)).claimRewards(assets, uint(-1));
+        amt = IERC20(_bankToken(bankId)).balanceOf(address(this));
         IERC20(_bankToken(bankId)).transfer(to, amt);
     }
 
@@ -477,20 +478,26 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
             address nft = neo.nft();
             for(uint j=0; j<neo.balanceOf(user); j++) {
                 address payable nbp = nbps[nft][neo.tokenOfOwnerByIndex(user, j)];
-                if(NBP(nbp).bankId() == bank)
+                if(NBP(nbp).bankId() == bank) {
+                    amt = amt.add(IERC20(_bankToken(bank)).balanceOf(nbp));
                     amt = amt.add(IBendIncentives(_bankIncentives(bank)).getRewardsBalance(assets, nbp));
+                }
             }
         }
     }
 
     function claimRewards() external returns(uint amt) {
+        return claimRewards(0);
+    }
+    function claimRewards(uint bank) public returns(uint amt) {
         address user = _msgSender();
         for(uint i=0; i<neoA.length; i++) {
             NEO neo = NEO(neoA[i]);
             address nft = neo.nft();
             for(uint j=0; j<neo.balanceOf(user); j++) {
                 address payable nbp = nbps[nft][neo.tokenOfOwnerByIndex(user, j)];
-                amt = amt.add(NBP(nbp).claimRewardsTo_(user));
+                if(NBP(nbp).bankId() == bank)
+                    amt = amt.add(NBP(nbp).claimRewardsTo_(user));
             }
         }
         emit RewardsClaimed(user, amt);
