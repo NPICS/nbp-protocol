@@ -9,17 +9,33 @@ import "./DydxFlashloanBase.sol";
 import "./IWETHGateway.sol";
 
 contract Constants {
+    address private  constant _BEND_            = 0x0d02755a5700414B26FF040e1dE35D337DF56218;
+    address private  constant _bendWETHGateway_ = 0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88;
+    address private  constant _bendDebtWETH_    = 0x87ddE3A3f4b629E389ce5894c9A1F34A7eeC5648;
+    //address private  constant _bendWETH_        = 0xeD1840223484483C0cb050E6fC344d1eBF0778a9;
+    //address private  constant _LendPoolAddressesProvider_ = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
+    address private  constant _bendLendPool_    = 0x70b97A0da65C15dfb0FFA02aEE6FA36e507C2762;
+    address private  constant _bendLendPoolLoan_= 0x5f6ac80CdB9E87f3Cfa6a90E5140B9a16A361d5C;
+    address private  constant _bendIncentives_  = 0x26FC1f11E612366d3367fc0cbFfF9e819da91C8d;   // BendProtocolIncentivesController
+
+    address private  constant _pWING_           = 0xDb0f18081b505A7DE20B18ac41856BCB4Ba86A1a;
+    address private  constant _wingWETHGateway_ = 0x5304E9188B6e2C4988f230b3D1C4786d9e05fAdB;
+    address private  constant _wingDebtWETH_    = 0xdB3856B8aBbb2A090607e8Da3949aFd5B8bC3273;
+    //address private  constant _wingWETH_        = ;
+    //address private  constant _wingPoolAddressesProvider_ = 0x8815e486Fb446E954497358582deCd9fb3451Ec6;
+    address private  constant _wingLendPool_    = 0x3D732AED4f05B4e32315f612B05d2E3340FB43E2;
+    address private  constant _wingLendPoolLoan_= 0x5A05fC74Db8217f3783B75DEE9932d9a896ECEa4;
+    address private  constant _wingIncentives_  = 0x750B9848b8f4956A41F6822F53aC1f80B4486bDE;   // WingProtocolIncentivesController
+
+    function _bankToken         (uint bank) internal pure returns (address) {  if(bank == 0)  return _BEND_;             else if(bank == 1)  return _pWING_;             else  return address(0);  }
+    function _bankWETHGateway   (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendWETHGateway_;  else if(bank == 1)  return _wingWETHGateway_;   else  return address(0);  }
+    function _bankDebtWETH      (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendDebtWETH_;     else if(bank == 1)  return _wingDebtWETH_;      else  return address(0);  }
+    function _bankLendPool      (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendLendPool_;     else if(bank == 1)  return _wingLendPool_;      else  return address(0);  }
+    function _bankLendPoolLoan  (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendLendPoolLoan_; else if(bank == 1)  return _wingLendPoolLoan_;  else  return address(0);  }
+    function _bankIncentives    (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendIncentives_;   else if(bank == 1)  return _wingIncentives_;    else  return address(0);  }
+
     address internal constant _dYdX_SoloMargin_ = 0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e;
     address internal constant _WETH_            = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-
-    address internal constant _BEND_            = 0x0d02755a5700414B26FF040e1dE35D337DF56218;
-    address internal constant _bendWETHGateway_ = 0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88;
-    address internal constant _bendDebtWETH_    = 0x87ddE3A3f4b629E389ce5894c9A1F34A7eeC5648;
-    //address internal constant _bendWETH_        = 0xeD1840223484483C0cb050E6fC344d1eBF0778a9;
-    //address internal constant _LendPoolAddressesProvider_ = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
-    address internal constant _bendLendPool_    = 0x70b97A0da65C15dfb0FFA02aEE6FA36e507C2762;
-    address internal constant _bendLendPoolLoan_= 0x5f6ac80CdB9E87f3Cfa6a90E5140B9a16A361d5C;
-    address internal constant _bendIncentives_  = 0x26FC1f11E612366d3367fc0cbFfF9e819da91C8d;   // BendProtocolIncentivesController
 
     address internal constant _NPics_           = 0xA2f78200746F73662ea8b5b721fDA86CB0880F15;
     address internal constant _BeaconProxyNBP_  = 0x70643f0DFbA856071D335678dF7ED332FFd6e3be;
@@ -102,6 +118,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
     address payable public beacon;
     address public nft;
     uint public tokenId;
+    uint public bankId;
 
     function __NBP_init(address nft_, uint tokenId_) external initializer {
         __ReentrancyGuard_init_unchained();
@@ -126,12 +143,13 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
 
     function claimRewardsTo_(address to) external onlyBeacon returns(uint amt) {
         address[] memory assets = new address[](1);
-        assets[0] = _bendDebtWETH_;
-        amt = IBendIncentives(_bendIncentives_).claimRewards(assets, uint(-1));
-        IERC20(_BEND_).transfer(to, amt);
+        assets[0] = _bankDebtWETH(bankId);
+        amt = IBendIncentives(_bankIncentives(bankId)).claimRewards(assets, uint(-1));
+        IERC20(_bankToken(bankId)).transfer(to, amt);
     }
 
-    function downPayWithETH_(address market, bytes calldata data, uint price, uint loanAmt) external payable onlyBeacon {
+    function downPayWithETH_(address market, bytes calldata data, uint price, uint loanAmt, uint bank) external payable onlyBeacon {
+        bankId = bank;
         _flashLoan(abi.encode(msg.sig, market, data, price, loanAmt));
     }
 
@@ -198,9 +216,9 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         require(success, string(abi.encodePacked("call market.buy failure : ", _callRevertMessgae(result))));
         require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
-        IERC721(nft).approve(_bendWETHGateway_, tokenId);
-        IDebtToken(_bendDebtWETH_).approveDelegation(_bendWETHGateway_, uint(-1));
-        IWETHGateway(_bendWETHGateway_).borrowETH(loanAmt, nft, tokenId, address(this), 0);
+        IERC721(nft).approve(_bankWETHGateway(bankId), tokenId);
+        IDebtToken(_bankDebtWETH(bankId)).approveDelegation(_bankWETHGateway(bankId), uint(-1));
+        IWETHGateway(_bankWETHGateway(bankId)).borrowETH(loanAmt, nft, tokenId, address(this), 0);
 
         require(address(this).balance >= balOfLoanedToken.add(2), "Insufficient balance to repay flashLoan");
         WETH9(_WETH_).deposit{value: balOfLoanedToken.add(2)}();
@@ -211,7 +229,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
         uint balOfLoanedToken = IERC20(_WETH_).balanceOf(address(this));
         WETH9(_WETH_).withdraw(balOfLoanedToken);
 
-        (, bool repayAll) = IWETHGateway(_bendWETHGateway_).repayETH{value: balOfLoanedToken}(nft, tokenId, balOfLoanedToken);
+        (, bool repayAll) = IWETHGateway(_bankWETHGateway(bankId)).repayETH{value: balOfLoanedToken}(nft, tokenId, balOfLoanedToken);
         require(repayAll, "Insufficient flashLoan < repayDebt");
         require(IERC721(nft).ownerOf(tokenId) == address(this), "nbp not owned the nft yet");
 
@@ -239,7 +257,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
     }
 
     // Reserved storage space to allow for layout changes in the future.
-    uint[47] private ______gap;
+    uint[46] private ______gap;
 }
 
 contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, Constants {
@@ -345,19 +363,25 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     
 
-    function availableBorrowsInETH(address nft) public view returns(uint r) {
-        (, , r, , , ,) = ILendPool(_bendLendPool_).getNftCollateralData(nft, _WETH_);
+    function availableBorrowsInETH(address nft) external view returns(uint) {
+        return availableBorrowsInETH(nft, 0);
+    }
+    function availableBorrowsInETH(address nft, uint bank) public view returns(uint r) {
+        (, , r, , , ,) = ILendPool(_bankLendPool(bank)).getNftCollateralData(nft, _WETH_);
     }
 
-    function downPayWithETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt) public payable nonReentrant {
-        require(loanAmt <= availableBorrowsInETH(nft), "Too much borrowETH");
+    function downPayWithETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt) external payable {
+        downPayWithETH(nft, tokenId, market, data, price, loanAmt, 0);
+    }
+    function downPayWithETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt, uint bank) public payable nonReentrant {
+        require(loanAmt <= availableBorrowsInETH(nft, bank), "Too much borrowETH");
         uint value = address(this).balance;
         require(value.add(loanAmt) >= price.add(2), "Insufficient down payment");
 
         address payable nbp = nbps[nft][tokenId];
         if(nbp == address(0))
             nbp = createNBP(nft, tokenId);
-        NBP(nbp).downPayWithETH_{value: value}(market, data, price, loanAmt);
+        NBP(nbp).downPayWithETH_{value: value}(market, data, price, loanAmt, bank);
 
         address neo = neos[nft];
         if(neo == address(0))
@@ -372,17 +396,23 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     event DownPayWithETH(address indexed sender, address indexed nft, uint indexed tokenId, uint value, uint loanAmt);
 
     function downPayWithWETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt, uint wethAmt) external payable {
+        downPayWithWETH(nft, tokenId, market, data, price, loanAmt, wethAmt, 0);
+    }
+    function downPayWithWETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt, uint wethAmt, uint bank) public payable {
         require(wethAmt >= IERC20(_WETH_).balanceOf(_msgSender()), "Insufficient WETH");
         IERC20(_WETH_).transferFrom(_msgSender(), address(this), wethAmt);
         WETH9(_WETH_).withdraw(wethAmt);
-        downPayWithETH(nft, tokenId, market, data, price, loanAmt);
+        downPayWithETH(nft, tokenId, market, data, price, loanAmt, bank);
     }
 
     function getLoanReserveBorrowAmount(address nftAsset, uint nftTokenId) public view returns(address reserveAsset, uint repayDebtAmount) {
-        uint loanId = ILendPoolLoan(_bendLendPoolLoan_).getCollateralLoanId(nftAsset, nftTokenId);
+        NBP nbp = NBP(nbps[nftAsset][nftTokenId]);
+        require(address(nbp) != address(0) && address(nbp).isContract(), "INVALID nbp");
+        uint bank = NBP(nbp).bankId();
+        uint loanId = ILendPoolLoan(_bankLendPoolLoan(bank)).getCollateralLoanId(nftAsset, nftTokenId);
         if(loanId == 0)
             return (address(0), 0);
-        return ILendPoolLoan(_bendLendPoolLoan_).getLoanReserveBorrowAmount(loanId);
+        return ILendPoolLoan(_bankLendPoolLoan(bank)).getLoanReserveBorrowAmount(loanId);
     }
 
     function getDebtWEthOf(address user) external view returns(uint amt) {
@@ -398,14 +428,14 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     
     function repayETH(address nftAsset, uint nftTokenId, uint amount) external payable nonReentrant returns(uint repayAmount, bool repayAll) {
+        NBP nbp = NBP(nbps[nftAsset][nftTokenId]);
+        require(address(nbp) != address(0) && address(nbp).isContract(), "INVALID nbp");
         if(amount > 0)
-            (repayAmount, repayAll) = IWETHGateway(_bendWETHGateway_).repayETH{value: msg.value}(nftAsset, nftTokenId, amount);
+            (repayAmount, repayAll) = IWETHGateway(_bankWETHGateway(nbp.bankId())).repayETH{value: msg.value}(nftAsset, nftTokenId, amount);
         if(amount == 0 || repayAll) {
             NEO neo = NEO(neos[nftAsset]);
             require(address(neo) != address(0) && address(neo).isContract(), "INVALID neo");
             address user = neo.ownerOf(nftTokenId);
-            NBP nbp = NBP(nbps[nftAsset][nftTokenId]);
-            require(address(nbp) != address(0) && address(nbp).isContract(), "INVALID nbp");
             uint rwd = nbp.claimRewardsTo_(user);
             emit RewardsClaimed(user, rwd);
             nbp.withdraw_(user);
@@ -417,8 +447,8 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
     event RepayETH(address indexed sender, address indexed nftAsset, uint indexed nftTokenId, uint repayAmount, bool repayAll);
 
-    function batchRepayETH(address[] calldata nftAssets, uint256[] calldata nftTokenIds, uint256[] calldata amounts) external payable nonReentrant returns(uint256[] memory repayAmounts, bool[] memory repayAlls) {
-        (repayAmounts, repayAlls) = IWETHGateway(_bendWETHGateway_).batchRepayETH{value: msg.value}(nftAssets, nftTokenIds, amounts);
+    function batchRepayETH(address[] calldata nftAssets, uint256[] calldata nftTokenIds, uint256[] calldata amounts, uint bank) external payable nonReentrant returns(uint256[] memory repayAmounts, bool[] memory repayAlls) {
+        (repayAmounts, repayAlls) = IWETHGateway(_bankWETHGateway(bank)).batchRepayETH{value: msg.value}(nftAssets, nftTokenIds, amounts);
         for(uint i=0; i<repayAmounts.length; i++) {
             if(repayAlls[i]) {
                 NEO neo = NEO(neos[nftAssets[i]]);
@@ -437,14 +467,18 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
 
     function getRewardsBalance(address user) external view returns(uint amt) {
+        return getRewardsBalance(user, 0);
+    }
+    function getRewardsBalance(address user, uint bank) public view returns(uint amt) {
         address[] memory assets = new address[](1);
-        assets[0] = _bendDebtWETH_;
+        assets[0] = _bankDebtWETH(bank);
         for(uint i=0; i<neoA.length; i++) {
             NEO neo = NEO(neoA[i]);
             address nft = neo.nft();
             for(uint j=0; j<neo.balanceOf(user); j++) {
-                address nbp = nbps[nft][neo.tokenOfOwnerByIndex(user, j)];
-                amt = amt.add(IBendIncentives(_bendIncentives_).getRewardsBalance(assets, nbp));
+                address payable nbp = nbps[nft][neo.tokenOfOwnerByIndex(user, j)];
+                if(NBP(nbp).bankId() == bank)
+                    amt = amt.add(IBendIncentives(_bankIncentives(bank)).getRewardsBalance(assets, nbp));
             }
         }
     }
