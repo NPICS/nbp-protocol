@@ -44,6 +44,7 @@ contract Constants {
 
     bytes32 internal constant _fee_             = "fee";
     bytes32 internal constant _feeTo_           = "feeTo";
+    bytes32 internal constant _allowMS_         = "allowMS";
 
     bytes4 internal constant _INTERFACE_ID_ERC721 = 0x80ac58cd;
 
@@ -375,6 +376,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
         downPayWithETH(nft, tokenId, market, data, price, loanAmt, 0);
     }
     function downPayWithETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt, uint bank) public payable nonReentrant {
+        _checkMarketSig(market, data, msg.sig);
         require(loanAmt <= availableBorrowsInETH(nft, bank), "Too much borrowETH");
         uint value = address(this).balance;
         require(value.add(loanAmt) >= price.add(2), "Insufficient down payment");
@@ -505,6 +507,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     event RewardsClaimed(address indexed user, uint amount);
 
     function acceptOffer(address nft, uint tokenId, address market, bytes calldata data, address approveTo) external nonReentrant {
+        _checkMarketSig(market, data, msg.sig);
         address payable sender = _msgSender();
         NEO neo = NEO(neos[nft]);
         require(address(neo) != address(0) && address(neo).isContract(), "INVALID neo");
@@ -532,6 +535,10 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
         if(config[_fee_] > 0 && config[_feeTo_] != 0)
             IERC20(_WETH_).transfer(address(config[_feeTo_]), IERC20(_WETH_).balanceOf(address(this)).mul(config[_fee_]).div(1e18));    
         IERC20(_WETH_).transfer(msg.sender, IERC20(_WETH_).balanceOf(address(this)));
+    }
+
+    function _checkMarketSig(address market, bytes calldata data, bytes4 sig) internal view {
+        require(getConfigI(_allowMS_, (uint(market) << 32) ^ uint32(abi.decode(data, (bytes4)))) & uint32(sig) == uint32(sig), "checkMarketSig failure");
     }
 
     receive () external payable {
