@@ -538,7 +538,8 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     }
 
     function _checkMarketSig(address market, bytes calldata data, bytes4 sig) internal view {
-        require(getConfigI(_allowMS_, (uint(market) << 32) ^ uint32(abi.decode(data, (bytes4)))) & uint32(sig) == uint32(sig), "checkMarketSig failure");
+        bytes4 sig_ = data[0] | bytes4(data[1]) >> 8 | bytes4(data[2]) >> 16 | bytes4(data[3]) >> 24;
+        require(getConfigI(_allowMS_, (uint(market) << 32) ^ uint32(sig_)) & uint32(sig) == uint32(sig), "checkMarketSig failure");
     }
 
     receive () external payable {
@@ -548,6 +549,36 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     // Reserved storage space to allow for layout changes in the future.
     uint[45] private ______gap;
 }
+
+//  https://docs.soliditylang.org/en/v0.6.12/types.html#array-slices
+//  https://github.com/ethereum/solidity/issues/9439
+//  https://github.com/ethereum/solidity/issues/6012
+//  https://twitter.com/nicksdjohnson/status/1484344786878623744
+//
+//contract TestSig {
+//    function getSig(bytes calldata data) public pure returns (bytes4) {
+//        require(data.length >=32 && uint224(abi.decode(data, (uint))) == 0, "unlucky data");
+//        return abi.decode(data, (bytes4));
+//    }
+//
+//    function getSig1(bytes calldata data) public pure returns (bytes4) {
+//        return abi.decode(abi.encodePacked(data[:4], bytes28(0)), (bytes4));
+//    }
+//
+//    function getSig2(bytes calldata data) public pure returns (bytes4) {
+//        return bytes4(uint32(abi.decode(abi.encodePacked(bytes28(0), data), (uint))));
+//    }
+//
+//    function getSig3(bytes calldata data) public pure returns (bytes4) {
+//        return data[0] | bytes4(data[1]) >> 8 | bytes4(data[2]) >> 16 | bytes4(data[3]) >> 24;
+//    }
+//
+//    function getSig4(bytes memory data) public pure returns (bytes4 sig) {
+//        assembly {
+//            sig := mload(add(data, 32))
+//        }
+//    }
+//}
 
 
 contract BeaconProxyNEO is Proxy, Constants {

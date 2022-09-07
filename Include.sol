@@ -1009,7 +1009,7 @@ contract Extendable is Sets, Extend {
 
 contract Extended is Setable, Extend {
   function _callback(bytes memory data) internal returns(bytes memory rdata) {
-    bytes4 sig = abi.decode(data, (bytes4));
+    bytes4 sig = data[0] | bytes4(data[1]) >> 8 | bytes4(data[2]) >> 16 | bytes4(data[3]) >> 24;    //bytes4 sig = abi.decode(data, (bytes4));
     address ex = _getExtend(sig);
     if(ex != address(0))
       _setExtend(sig, address(0));
