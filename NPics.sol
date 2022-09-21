@@ -13,26 +13,27 @@ contract Constants {
     address private  constant _bendWETHGateway_ = 0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88;
     address private  constant _bendDebtWETH_    = 0x87ddE3A3f4b629E389ce5894c9A1F34A7eeC5648;
     //address private  constant _bendWETH_        = 0xeD1840223484483C0cb050E6fC344d1eBF0778a9;
-    //address private  constant _LendPoolAddressesProvider_ = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
-    address private  constant _bendLendPool_    = 0x70b97A0da65C15dfb0FFA02aEE6FA36e507C2762;
-    address private  constant _bendLendPoolLoan_= 0x5f6ac80CdB9E87f3Cfa6a90E5140B9a16A361d5C;
-    address private  constant _bendIncentives_  = 0x26FC1f11E612366d3367fc0cbFfF9e819da91C8d;   // BendProtocolIncentivesController
+    address private  constant _bendAddrProvider_= 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;   // LendPoolAddressesProvider
+    //address private  constant _bendLendPool_    = 0x70b97A0da65C15dfb0FFA02aEE6FA36e507C2762;
+    //address private  constant _bendLendPoolLoan_= 0x5f6ac80CdB9E87f3Cfa6a90E5140B9a16A361d5C;
+    //address private  constant _bendIncentives_  = 0x26FC1f11E612366d3367fc0cbFfF9e819da91C8d;   // BendProtocolIncentivesController
 
     address private  constant _pWING_           = 0xDb0f18081b505A7DE20B18ac41856BCB4Ba86A1a;
     address private  constant _wingWETHGateway_ = 0x5304E9188B6e2C4988f230b3D1C4786d9e05fAdB;
     address private  constant _wingDebtWETH_    = 0xdB3856B8aBbb2A090607e8Da3949aFd5B8bC3273;
     //address private  constant _wingWETH_        = ;
-    //address private  constant _wingPoolAddressesProvider_ = 0x8815e486Fb446E954497358582deCd9fb3451Ec6;
-    address private  constant _wingLendPool_    = 0x3D732AED4f05B4e32315f612B05d2E3340FB43E2;
-    address private  constant _wingLendPoolLoan_= 0x5A05fC74Db8217f3783B75DEE9932d9a896ECEa4;
-    address private  constant _wingIncentives_  = 0x750B9848b8f4956A41F6822F53aC1f80B4486bDE;   // WingProtocolIncentivesController
+    address private  constant _wingAddrProvider_= 0x8815e486Fb446E954497358582deCd9fb3451Ec6;   // LendPoolAddressesProvider
+    //address private  constant _wingLendPool_    = 0xCDeF080e2Fb957f2F5334334fd7b69d069acA136;
+    //address private  constant _wingLendPoolLoan_= 0x5A05fC74Db8217f3783B75DEE9932d9a896ECEa4;
+    //address private  constant _wingIncentives_  = 0x750B9848b8f4956A41F6822F53aC1f80B4486bDE;   // WingProtocolIncentivesController
 
     function _bankToken         (uint bank) internal pure returns (address) {  if(bank == 0)  return _BEND_;             else if(bank == 1)  return _pWING_;             else  return address(0);  }
     function _bankWETHGateway   (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendWETHGateway_;  else if(bank == 1)  return _wingWETHGateway_;   else  return address(0);  }
     function _bankDebtWETH      (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendDebtWETH_;     else if(bank == 1)  return _wingDebtWETH_;      else  return address(0);  }
-    function _bankLendPool      (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendLendPool_;     else if(bank == 1)  return _wingLendPool_;      else  return address(0);  }
-    function _bankLendPoolLoan  (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendLendPoolLoan_; else if(bank == 1)  return _wingLendPoolLoan_;  else  return address(0);  }
-    function _bankIncentives    (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendIncentives_;   else if(bank == 1)  return _wingIncentives_;    else  return address(0);  }
+    function _bankAddrProvider  (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendAddrProvider_; else if(bank == 1)  return _wingAddrProvider_;  else  return address(0);  }
+    //function _bankLendPool      (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendLendPool_;     else if(bank == 1)  return _wingLendPool_;      else  return address(0);  }
+    //function _bankLendPoolLoan  (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendLendPoolLoan_; else if(bank == 1)  return _wingLendPoolLoan_;  else  return address(0);  }
+    //function _bankIncentives    (uint bank) internal pure returns (address) {  if(bank == 0)  return _bendIncentives_;   else if(bank == 1)  return _wingIncentives_;    else  return address(0);  }
 
     address internal constant _dYdX_SoloMargin_ = 0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e;
     address internal constant _WETH_            = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -145,7 +146,7 @@ contract NBP is DydxFlashloanBase, ICallee, IERC721Receiver, ReentrancyGuardUpgr
     function claimRewardsTo_(address to) external onlyBeacon returns(uint amt) {
         address[] memory assets = new address[](1);
         assets[0] = _bankDebtWETH(bankId);
-        IBendIncentives(_bankIncentives(bankId)).claimRewards(assets, uint(-1));
+        IBendIncentives(ILendPoolAddressesProvider(_bankAddrProvider(bankId)).getIncentivesController()).claimRewards(assets, uint(-1));
         amt = IERC20(_bankToken(bankId)).balanceOf(address(this));
         IERC20(_bankToken(bankId)).transfer(to, amt);
     }
@@ -369,7 +370,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
         return availableBorrowsInETH(nft, 0);
     }
     function availableBorrowsInETH(address nft, uint bank) public view returns(uint r) {
-        (, , r, , , ,) = ILendPool(_bankLendPool(bank)).getNftCollateralData(nft, _WETH_);
+        (, , r, , , ,) = ILendPool(ILendPoolAddressesProvider(_bankAddrProvider(bank)).getLendPool()).getNftCollateralData(nft, _WETH_);
     }
 
     function downPayWithETH(address nft, uint tokenId, address market, bytes calldata data, uint price, uint loanAmt) external payable {
@@ -412,10 +413,11 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
         NBP nbp = NBP(nbps[nftAsset][nftTokenId]);
         require(address(nbp) != address(0) && address(nbp).isContract(), "INVALID nbp");
         uint bank = NBP(nbp).bankId();
-        uint loanId = ILendPoolLoan(_bankLendPoolLoan(bank)).getCollateralLoanId(nftAsset, nftTokenId);
+        address lendPoolLoan = ILendPoolAddressesProvider(_bankAddrProvider(bank)).getLendPoolLoan();
+        uint loanId = ILendPoolLoan(lendPoolLoan).getCollateralLoanId(nftAsset, nftTokenId);
         if(loanId == 0)
             return (address(0), 0);
-        return ILendPoolLoan(_bankLendPoolLoan(bank)).getLoanReserveBorrowAmount(loanId);
+        return ILendPoolLoan(lendPoolLoan).getLoanReserveBorrowAmount(loanId);
     }
 
     function getDebtWEthOf(address user) external view returns(uint amt) {
@@ -475,6 +477,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
     function getRewardsBalance(address user, uint bank) public view returns(uint amt) {
         address[] memory assets = new address[](1);
         assets[0] = _bankDebtWETH(bank);
+        address incentives = ILendPoolAddressesProvider(_bankAddrProvider(bank)).getIncentivesController();
         for(uint i=0; i<neoA.length; i++) {
             NEO neo = NEO(neoA[i]);
             address nft = neo.nft();
@@ -482,7 +485,7 @@ contract NPics is Configurable, ReentrancyGuardUpgradeSafe, ContextUpgradeSafe, 
                 address payable nbp = nbps[nft][neo.tokenOfOwnerByIndex(user, j)];
                 if(NBP(nbp).bankId() == bank) {
                     amt = amt.add(IERC20(_bankToken(bank)).balanceOf(nbp));
-                    amt = amt.add(IBendIncentives(_bankIncentives(bank)).getRewardsBalance(assets, nbp));
+                    amt = amt.add(IBendIncentives(incentives).getRewardsBalance(assets, nbp));
                 }
             }
         }
@@ -623,4 +626,97 @@ interface ILendPoolLoan {
 interface IBendIncentives {
     function getRewardsBalance(address[] calldata assets, address user) external view returns(uint);
     function claimRewards(address[] calldata assets, uint amount) external returns(uint);
+}
+
+
+/**
+ * @title LendPoolAddressesProvider contract
+ * @dev Main registry of addresses part of or connected to the protocol, including permissioned roles
+ * - Acting also as factory of proxies and admin of those, so with right to change its implementations
+ * - Owned by the Bend Governance
+ * @author Bend
+ **/
+interface ILendPoolAddressesProvider {
+  event MarketIdSet(string newMarketId);
+  event LendPoolUpdated(address indexed newAddress, bytes encodedCallData);
+  event ConfigurationAdminUpdated(address indexed newAddress);
+  event EmergencyAdminUpdated(address indexed newAddress);
+  event LendPoolConfiguratorUpdated(address indexed newAddress, bytes encodedCallData);
+  event ReserveOracleUpdated(address indexed newAddress);
+  event NftOracleUpdated(address indexed newAddress);
+  event LendPoolLoanUpdated(address indexed newAddress, bytes encodedCallData);
+  event ProxyCreated(bytes32 id, address indexed newAddress);
+  event AddressSet(bytes32 id, address indexed newAddress, bool hasProxy, bytes encodedCallData);
+  event BNFTRegistryUpdated(address indexed newAddress);
+  event LendPoolLiquidatorUpdated(address indexed newAddress);
+  event IncentivesControllerUpdated(address indexed newAddress);
+  event UIDataProviderUpdated(address indexed newAddress);
+  event BendDataProviderUpdated(address indexed newAddress);
+  event WalletBalanceProviderUpdated(address indexed newAddress);
+
+  function getMarketId() external view returns (string memory);
+
+  function setMarketId(string calldata marketId) external;
+
+  function setAddress(bytes32 id, address newAddress) external;
+
+  function setAddressAsProxy(
+    bytes32 id,
+    address impl,
+    bytes memory encodedCallData
+  ) external;
+
+  function getAddress(bytes32 id) external view returns (address);
+
+  function getLendPool() external view returns (address);
+
+  function setLendPoolImpl(address pool, bytes memory encodedCallData) external;
+
+  function getLendPoolConfigurator() external view returns (address);
+
+  function setLendPoolConfiguratorImpl(address configurator, bytes memory encodedCallData) external;
+
+  function getPoolAdmin() external view returns (address);
+
+  function setPoolAdmin(address admin) external;
+
+  function getEmergencyAdmin() external view returns (address);
+
+  function setEmergencyAdmin(address admin) external;
+
+  function getReserveOracle() external view returns (address);
+
+  function setReserveOracle(address reserveOracle) external;
+
+  function getNFTOracle() external view returns (address);
+
+  function setNFTOracle(address nftOracle) external;
+
+  function getLendPoolLoan() external view returns (address);
+
+  function setLendPoolLoanImpl(address loan, bytes memory encodedCallData) external;
+
+  function getBNFTRegistry() external view returns (address);
+
+  function setBNFTRegistry(address factory) external;
+
+  function getLendPoolLiquidator() external view returns (address);
+
+  function setLendPoolLiquidator(address liquidator) external;
+
+  function getIncentivesController() external view returns (address);
+
+  function setIncentivesController(address controller) external;
+
+  function getUIDataProvider() external view returns (address);
+
+  function setUIDataProvider(address provider) external;
+
+  function getBendDataProvider() external view returns (address);
+
+  function setBendDataProvider(address provider) external;
+
+  function getWalletBalanceProvider() external view returns (address);
+
+  function setWalletBalanceProvider(address provider) external;
 }
